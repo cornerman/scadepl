@@ -1,51 +1,12 @@
-package debugrepl
+package scadepl
 
-import scala.tools.nsc.interpreter.{ILoop, NamedParam}
 import scala.tools.nsc.Settings
+import scala.reflect.runtime.universe.TypeTag
 
-object DebugRepl {
-  class DebugILoop(params: Seq[NamedParam]) extends ILoop {
+case class NamedValue[T](name: String, value: T)(implicit val typeTag: TypeTag[T])
 
-    override def printWelcome() = {
-      super.printWelcome()
-      echo("Debug repl started. Welcome!")
-
-      processLine("")
-      echo("Binding scope:")
-      params.foreach(intp.bind)
-
-      // intp.beQuietDuring {
-      // }
-    }
-
-    override def commands = super.commands ++ debugCommands
-
-    import LoopCommand.{ cmd, nullary }
-
-    lazy val debugCommands = List(
-        nullary("ls", "show all defined parameters", DebugCommands.ls)
-      )
-
-    object DebugCommands {
-      def ls() {
-        params.foreach { param =>
-          val line = s"${param.name}: ${param.tpe} = ${param.value}"
-          println(line)
-        }
-      }
-    }
-  }
-
-  def breakIf(assertion: => Boolean, params: NamedParam*) {
-    if (assertion) break(params: _*)
-  }
-
-  def break(params: NamedParam*) {
-    val repl = new DebugILoop(params)
-    repl process settings
-  }
-
-  def settings = {
+object ReplConfig {
+  lazy val settings = {
     val settings = new Settings
     if (startedFromSbt)
       settings.embeddedDefaults[DebugRepl.type]
@@ -58,5 +19,27 @@ object DebugRepl {
   def startedFromSbt = {
     new Exception().getStackTrace.exists(_.toString.startsWith("sbt"))
   }
+}
 
+object DebugRepl {
+  implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: TypeTag[T]) = NamedValue(tuple._1, tuple._2)
+
+  def breakIf(assertion: => Boolean, namedValues: NamedValue[_]*) {
+    if (assertion) break(namedValues: _*)
+  }
+
+  def break(namedValues: NamedValue[_]*) {
+    val repl = new DebugILoop(namedValues)
+    repl process ReplConfig.settings
+  }
+
+  object Smart {
+    def breakIf(assertion: => Boolean)(implicit line: sourcecode.Line, file: sourcecode.File) {
+      if (assertion) break()
+    }
+
+    def break()(implicit line: sourcecode.Line, file: sourcecode.File) {
+      println(s"BREAK AT: $file:$line")
+    }
+  }
 }
