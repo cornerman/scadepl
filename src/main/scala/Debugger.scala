@@ -6,12 +6,12 @@ import com.sun.jdi._
 import com.sun.jdi.event.BreakpointEvent
 import collection.JavaConverters._
 
-case class BreakMeta(frame: StackFrame, event: BreakpointEvent)
+case class DebugSettings(breakOnException: Boolean = false)
 
 object Debugger {
   import Utils._
 
-  def namedValuesToParams(vars: Map[String, Value]): List[NamedValue[_]] = {
+  def namedValues(vars: Map[String, Value]): List[NamedValue[_]] = {
     vars.toList.map { case (name, value) =>
       value match {
         case v: BooleanValue => NamedValue(name, v.value)
@@ -47,7 +47,7 @@ object Debugger {
     )
   }
 
-  def launch(mainClass: Class[_]) {
+  def launch(mainClass: Class[_], settings: DebugSettings = DebugSettings()) {
     val debugger = createDebugger(mainClass)
 
     debugger.start { s =>
@@ -57,11 +57,13 @@ object Debugger {
       inputStreamToOutputStream(p.getErrorStream(), System.err);
       inputStreamToOutputStream(p.getInputStream(), System.out);
 
-      // s.onAllExceptions(false, true).foreach(e => {
-      //   println(s"Unhandled exception: $e")
-      //   DebugRepl.break(NamedParam("e", e.asInstanceOf[Any]))
-      //   debugger.stop()
-      // })
+      if (settings.breakOnException) {
+        s.onUnsafeAllExceptions(false, true).foreach(e => {
+          println(s"Unhandled exception: $e")
+          DebugRepl.break(NamedValue("_exception", e))
+          debugger.stop()
+        })
+      }
 
       val className = classToName(DebugRepl.getClass)
       val fileName = JDITools.scalaClassStringToFileString(className)
@@ -75,21 +77,18 @@ object Debugger {
         val frames = e.thread.frames.asScala.dropWhile(_.thisObject.`type`.name == debugName)
         frames.headOption.foreach { frame =>
           println(s"Current stack frame: $frame")
-          val bp = BreakMeta(frame, e)
-          val preDefinedParam = NamedValue("_bp", bp)
+          val definedValues = List(NamedValue("_bp", e), NamedValue("_frame", frame))
           val vars = frame.getValues(frame.visibleVariables).asScala.toMap.map { case (k,v) => (k.name,v) }
           val fields = frame.thisObject.getValues(frame.thisObject.referenceType.visibleFields).asScala.toMap.map { case (k,v) => (k.name,v) }
-          val params = preDefinedParam :: namedValuesToParams(vars) ++ namedValuesToParams(fields)
-          // val params = List(preDefinedParam)
+          val params = definedValues ++ namedValues(vars) ++ namedValues(fields)
 
           DebugRepl.break(params : _*)
         }
-        // debugger.stop()
       })
 
       // val className = classToName(DebugRepl.Smart.getClass)
       // val funcName = "break"
-      // s.onMethodExit(className, funcName).foreach(e => {
+      // s.onUnsafeMethodExit(className, funcName).foreach(e => {
       //   println(s"Break at: $e")
       //   DebugRepl.break(NamedValue("e", e))
       // })
