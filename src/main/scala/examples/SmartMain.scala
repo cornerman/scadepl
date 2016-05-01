@@ -1,24 +1,11 @@
-import scadepl.{DebugRepl, Debugger}
-
-object Main extends App {
-  import DebugRepl._
-
-  println("started")
-
-  val integers = List(1,2)
-  val name = "a name"
-  break("integers" -> integers, "name" -> name)
-
-  println("finished")
-}
+import scadepl.DebugRepl.Smart._
+import scadepl.Debugger
 
 object SmartDebug extends App {
   Debugger.launch(SmartMain.getClass)
 }
 
 object SmartMain extends App {
-  import DebugRepl.Smart._
-
   trait IBar {
     val inherited = "top"
   }

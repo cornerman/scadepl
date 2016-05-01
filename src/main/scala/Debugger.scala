@@ -6,7 +6,7 @@ import com.sun.jdi._
 import com.sun.jdi.event.BreakpointEvent
 import collection.JavaConverters._
 
-case class DebugSettings(breakOnException: Boolean = false)
+case class DebugSettings(breakOnException: Boolean = false, breakpoints: Seq[(String,Int)] = Seq.empty)
 
 object Debugger {
   import Utils._
@@ -64,33 +64,36 @@ object Debugger {
         })
       }
 
+      //TODO: method enter/exit
       val className = classToName(DebugRepl.getClass)
-      val fileName = JDITools.scalaClassStringToFileString(className)
-      val lineNumber = 42 //TODO: method enter/exit
-      s.onUnsafeBreakpoint(fileName, lineNumber).foreach(e => {
-        val path = e.location().sourcePath()
-        val line = e.location().lineNumber()
+      val breakMethod = JDITools.scalaClassStringToFileString(className) -> 42
+      val breakpoints = breakMethod :: settings.breakpoints.toList
+      breakpoints.foreach { case (fileName, lineNumber) =>
+        s.onUnsafeBreakpoint(fileName, lineNumber).foreach(e => {
+          val path = e.location().sourcePath()
+          val line = e.location().lineNumber()
 
-        println(s"Reached breakpoint for $path:$line")
-        val debugName = scadepl.DebugRepl.Smart.getClass.getName
-        val frames = e.thread.frames.asScala.dropWhile(_.thisObject.`type`.name == debugName)
-        frames.headOption.foreach { frame =>
-          println(s"Current stack frame: $frame")
-          val definedValues = List(NamedValue("_bp", e), NamedValue("_frame", frame))
-          val vars = frame.getValues(frame.visibleVariables).asScala.toMap.map { case (k,v) => (k.name,v) }
-          val fields = frame.thisObject.getValues(frame.thisObject.referenceType.visibleFields).asScala.toMap.map { case (k,v) => (k.name,v) }
-          val params = definedValues ++ namedValues(vars) ++ namedValues(fields)
+          println(s"Reached breakpoint for $path:$line")
+          val debugName = DebugRepl.Smart.getClass.getName
+          val frames = e.thread.frames.asScala.dropWhile(_.thisObject.`type`.name == debugName)
+          frames.headOption.foreach { frame =>
+            println(s"Current stack frame: $frame")
+            val definedValues = List(NamedValue("_bp", e), NamedValue("_frame", frame))
+            val vars = frame.getValues(frame.visibleVariables).asScala.toMap.map { case (k,v) => (k.name,v) }
+            val fields = frame.thisObject.getValues(frame.thisObject.referenceType.visibleFields).asScala.toMap.map { case (k,v) => (k.name,v) }
+            val params = definedValues ++ namedValues(vars) ++ namedValues(fields)
 
-          DebugRepl.break(params : _*)
-        }
-      })
+            DebugRepl.break(params : _*)
+          }
+        })
+      }
 
-      // val className = classToName(DebugRepl.Smart.getClass)
-      // val funcName = "break"
-      // s.onUnsafeMethodExit(className, funcName).foreach(e => {
-      //   println(s"Break at: $e")
-      //   DebugRepl.break(NamedValue("e", e))
-      // })
+    // val className = classToName(DebugRepl.Smart.getClass)
+    // val funcName = "break"
+    // s.onUnsafeMethodExit(className, funcName).foreach(e => {
+    //   println(s"Break at: $e")
+    //   DebugRepl.break(NamedValue("e", e))
+    // })
     }
 
     while (debugger.isRunning && debugger.process.isEmpty)
