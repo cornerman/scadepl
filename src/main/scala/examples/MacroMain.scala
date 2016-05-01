@@ -14,13 +14,22 @@ object MacroMain extends App {
 
   object Bar extends IBar {
     val field =  List(1)
-    def func(arg: Int) {
-      val local = 0
-      if (arg > local) break()
+    def func(arg: Int): String = {
+      log(arg)
+      val local = 1
+
+      // if (arg < local) {
+      //   val unseeBlock = "one"
+      //   unseeBlock
+      // } else {
+        val seeBlock = "two"
+        break(arg, seeBlock, field, inherited)
+        seeBlock
+      // }
     }
   }
 
-  Bar.func(2)
+  println(Bar.func(2))
 
   println("finished")
 }
