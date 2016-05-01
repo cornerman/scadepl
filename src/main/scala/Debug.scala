@@ -8,7 +8,7 @@ object Debug {
   implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: TypeTag[T]): NamedValue[T] = NamedValue(tuple._1, tuple._2)
 
   def break(namedValues: NamedValue[_]*) {
-    val repl = new DebugILoop(namedValues)
+    val repl = new ReplILoop(namedValues)
     repl process ReplConfig.settings
   }
 

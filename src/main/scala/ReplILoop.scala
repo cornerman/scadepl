@@ -2,7 +2,7 @@ package scadepl
 
 import scala.tools.nsc.interpreter.ILoop
 
-class DebugILoop(namedValues: Seq[NamedValue[_]]) extends ILoop {
+class ReplILoop(namedValues: Seq[NamedValue[_]] = Seq.empty, imports: Seq[String] = Seq.empty) extends ILoop {
 
   private def init() {
     echo("Binding scope:")
