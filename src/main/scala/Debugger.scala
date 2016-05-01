@@ -94,8 +94,11 @@ object Debugger {
       // })
     }
 
-    // Keep the sample program running while our debugger is running
-    //TODO: exit?
-    while (debugger.isRunning) Thread.sleep(1)
+    while (debugger.isRunning && debugger.process.isEmpty)
+      Thread.sleep(200)
+
+    debugger.process.foreach(_.waitFor())
+    if (debugger.isRunning)
+      debugger.stop()
   }
 }
