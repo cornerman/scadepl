@@ -61,7 +61,6 @@ object Debugger {
         s.onUnsafeAllExceptions(false, true).foreach(e => {
           println(s"Unhandled exception: $e")
           DebugRepl.break(NamedValue("_exception", e))
-          debugger.stop()
         })
       }
 
