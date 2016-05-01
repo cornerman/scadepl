@@ -1,13 +1,13 @@
 package scadepel.examples
 
-object DebuggerMain extends App {
-  import scadepl.Debugger
+import scadepl.{Debugger, Debuggee}
 
+object DebuggerMain extends App {
   Debugger.launch(DebuggeeMain.getClass)
 }
 
 object DebuggeeMain extends App {
-  import scadepl.Debuggee._
+  import Debuggee._
 
   trait IBar {
     val inherited = "top"
