@@ -2,16 +2,9 @@ name := "scadepl"
 
 version := "0.1"
 
-scalaVersion := "2.11.8"
+val scalaV = "2.11.8"
 
-libraryDependencies ++= Seq(
-  "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-  "org.scala-debugger" %% "scala-debugger-api" % "1.0.0",
-  "com.lihaoyi" %% "sourcecode" % "0.1.1",
-  "ch.qos.logback"      %  "logback-classic"      % "1.0.7"
-)
-
-scalacOptions ++= Seq(
+val scalacOpts = Seq(
   "-encoding", "UTF-8",
   "-unchecked",
   "-deprecation",
@@ -24,8 +17,24 @@ scalacOptions ++= Seq(
 //,"-Xdisable-assertions", "-optimize"
 )
 
-fork := true
+lazy val main = (project in file(".")).settings(
+  scalaVersion := scalaV,
+  scalacOptions ++= scalacOpts,
+  libraryDependencies ++= Seq(
+    "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    "org.scala-debugger" %% "scala-debugger-api" % "1.0.0",
+    "ch.qos.logback"      %  "logback-classic"      % "1.0.7"
+  ),
+  fork := true,
+  connectInput in run := true, // Connects stdin to sbt during forked runs
+  outputStrategy := Some(StdoutOutput) // Get rid of output prefix
+).dependsOn(macros)
 
-connectInput in run := true // Connects stdin to sbt during forked runs
+lazy val macros = (project in file("macros")).settings(
+  scalaVersion := scalaV,
+  scalacOptions ++= scalacOpts,
+  libraryDependencies ++= Seq(
+    "org.scala-lang" % "scala-compiler" % scalaVersion.value
+  )
+)
 
-outputStrategy := Some(StdoutOutput) // Get rid of output prefix

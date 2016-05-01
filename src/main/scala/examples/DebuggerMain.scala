@@ -1,11 +1,14 @@
-import scadepl.DebugRepl.Smart._
-import scadepl.Debugger
+package scadepel.examples
 
-object SmartDebug extends App {
-  Debugger.launch(SmartMain.getClass)
+object DebuggerMain extends App {
+  import scadepl.Debugger
+
+  Debugger.launch(DebuggeeMain.getClass)
 }
 
-object SmartMain extends App {
+object DebuggeeMain extends App {
+  import scadepl.Debuggee._
+
   trait IBar {
     val inherited = "top"
   }
@@ -16,7 +19,7 @@ object SmartMain extends App {
 
     def test(me: Option[Int]) = {
       val number = 0
-      breakIf(me.filter(_ > number).isEmpty)
+      if (me.filter(_ > number).isEmpty) break()
     }
   }
 
@@ -24,7 +27,6 @@ object SmartMain extends App {
 
   val bar = new Bar
   bar.test(Some(1))
-  Thread.sleep(1000)
   bar.test(None)
 
   println("finished")
