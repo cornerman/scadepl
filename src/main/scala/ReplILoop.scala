@@ -1,13 +1,21 @@
 package scadepl
 
 import scala.tools.nsc.interpreter.ILoop
+import scala.reflect.runtime.universe.TypeTag
 
 class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoop {
 
   private def init() {
     echo("Binding scope:")
     imports.foreach(i => intp.interpret(s"import $i"))
-    namedValues.foreach(v => intp.bind(v.name, v.typeTag.tpe.toString, v.value))
+    namedValues.foreach { v =>
+      val tpe = v.typeTag match {
+        case t: TypeTag[_] => t.tpe.toString
+        case _             => v.value.getClass.getName // TODO: this is only a workaround for generics
+      }
+
+      intp.bind(v.name, tpe, v.value)
+    }
     // intp.beQuietDuring {
     // }
   }
