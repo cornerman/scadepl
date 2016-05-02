@@ -7,9 +7,13 @@ case class NamedValue[T](name: String, value: T)(implicit val typeTag: TypeTag[T
 object Debug {
   implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: TypeTag[T]): NamedValue[T] = NamedValue(tuple._1, tuple._2)
 
-  def break(namedValues: NamedValue[_]*) {
-    val repl = new ReplILoop(namedValues)
+  def break(imports: Seq[String], namedValues: NamedValue[_]*) {
+    val repl = new ReplILoop(imports, namedValues)
     repl process ReplConfig.settings
+  }
+
+  def break(namedValues: NamedValue[_]*) {
+    break(Seq.empty, namedValues: _*)
   }
 
   def log(namedValues: NamedValue[_]*) {

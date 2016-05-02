@@ -2,10 +2,11 @@ package scadepl
 
 import scala.tools.nsc.interpreter.ILoop
 
-class ReplILoop(namedValues: Seq[NamedValue[_]] = Seq.empty, imports: Seq[String] = Seq.empty) extends ILoop {
+class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoop {
 
   private def init() {
     echo("Binding scope:")
+    imports.foreach(i => intp.interpret(s"import $i"))
     namedValues.foreach(v => intp.bind(v.name, v.typeTag.tpe.toString, v.value))
     // intp.beQuietDuring {
     // }
