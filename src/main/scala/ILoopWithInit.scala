@@ -11,7 +11,6 @@ class ILoopWithInit extends ILoop {
 
   override def printWelcome() = {
     super.printWelcome()
-    echo("Debug repl started. Welcome!")
 
     processLine("") // wait for repl to be ready
     _intp = intp

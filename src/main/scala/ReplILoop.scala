@@ -5,8 +5,13 @@ import reflect.runtime.universe.TypeTag
 class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoopWithInit {
 
   override protected def init() {
-    echo("Binding scope:")
-    imports.foreach(i => intp.interpret(s"import $i"))
+    echo("Debug repl started. Welcome!")
+
+    echo("Importing: ")
+    val importCode = imports.map(i => s"import $i").mkString(";")
+    intp.interpret(importCode)
+
+    echo("Binding values:")
     namedValues.foreach { v =>
       val tpe = v.typeTag match {
         case t: TypeTag[_] => t.tpe.toString
