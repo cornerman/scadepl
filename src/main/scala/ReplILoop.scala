@@ -8,17 +8,17 @@ class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]
     echo("Debug repl started. Welcome!")
 
     echo("Importing: ")
-    val importCode = imports.map(i => s"import $i").mkString(";")
+    val importCode = imports.distinct.map(i => s"import $i").mkString(";")
     intp.interpret(importCode)
 
     echo("Binding values:")
-    namedValues.foreach { v =>
+    namedValues.distinct.foreach { v =>
       val tpe = v.typeTag match {
         case t: TypeTag[_] => t.tpe.toString
         case _             => v.value.getClass.getName // TODO: this is only a workaround for generics
       }
 
-      intp.bind(v.name, tpe, v.value)
+      intp.bind(v.strippedName, tpe, v.value)
     }
     // intp.beQuietDuring {
     // }

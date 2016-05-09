@@ -2,32 +2,34 @@ package scadepl.macros
 
 import language.experimental.macros
 import reflect.macros.blackbox.Context
+import scadepl.NamedValue
 
 object Debug {
-  def break(vals: Any*): Unit = macro DebugImpl.break //TODO: version with imports
-  def log(vals: Any*): Unit = macro DebugImpl.log
-
-  object Smart {
-    def break(): Unit = macro DebugImpl.autoBreak
-    def log(): Unit = macro DebugImpl.autoLog
-  }
+  def _imports: List[String] = macro DebugImpl.imports
+  def _locals: List[NamedValue[_]] = macro DebugImpl.locals
+  def _args: List[NamedValue[_]] = macro DebugImpl.args
+  def _members: List[NamedValue[_]] = macro DebugImpl.members
+  def _thises: List[NamedValue[_]] = macro DebugImpl.thises
+  def _all: List[NamedValue[_]] = macro DebugImpl.all
+  def _idents(vals: Any*): List[NamedValue[_]] = macro DebugImpl.idents
 }
 
-object DebugImpl {
-  def namedValuesFromTrees(c: Context)(vals: Seq[c.Tree]): List[c.Tree] = {
-    import c.universe._
-    println(vals)
-    println(vals.map(_.getClass))
-    vals.collect {
-      case v@Select(_, TermName(name)) => q"scadepl.NamedValue($name, $v)"
-      case v@Ident(TermName(name)) => q"scadepl.NamedValue($name, $v)"
-      case v@Literal(Constant(_)) => q"scadepl.NamedValue(${c.freshName()}, $v)"
-      case v@This(TypeName(thisType)) =>
-        q"scadepl.NamedValue(${s"${thisType}_this"}, $v)"
-    }.toList
-  }
+// https://github.com/lihaoyi/sourcecode/blob/master/sourcecode/shared/src/main/scala/sourcecode/SourceContext.scala#L117
+// val lineNum = pos.line
+// val fileName = pos.source.path // This needs to be trimmed down
+// val fullName = owner.fullName.trim
+// val fileContent = new String(tree.pos.source.content)
+// val start = tree.collect{case tree => tree.pos.startOrPoint}.min
+// val g = c.asInstanceOf[reflect.macros.runtime.Context].global
+// val parser = g.newUnitParser(fileContent.drop(start))
+// parser.expr()
+// val end = parser.in.lastOffset
+// val txt = fileContent.slice(start, start + end)
 
-  def symbolOwnerChain(c: Context)(sym: c.universe.Symbol): List[c.universe.Symbol] = {
+// val newTree = c.parse(fileContent)
+
+object DebugImpl {
+  def symbolOwnerChain(c: Context)(sym: c.Symbol): List[c.Symbol] = {
     import c.universe._
 
     sym.owner match {
@@ -36,68 +38,61 @@ object DebugImpl {
     }
   }
 
-  def expandEnclosingTree(c: Context)(tree: c.universe.Tree): List[c.universe.Tree] = {
+  def expandEnclosingTree(c: Context)(tree: c.Tree): List[c.Tree] = {
     import c.universe._
 
-    if (tree.exists(t => t.pos == c.enclosingPosition))
+    if (tree.exists(_.pos == c.enclosingPosition))
       tree :: tree.children.flatMap(t => expandEnclosingTree(c)(t))
     else
       List.empty
   }
 
-  def namedValuesInContext(c: Context): List[c.Tree] = {
+  def localsInContext(c: Context): List[c.TermName] = {
     import c.universe._
 
-    val owner = c.internal.enclosingOwner
-    val tree = c.macroApplication
-    val prefix = c.prefix.tree
-    val ownerChain = symbolOwnerChain(c)(owner)
-
-    val members: List[TermName] = ownerChain.collect {
-      // case s: MethodSymbol => s.paramLists.flatMap(_.map(_.name.toTermName))
-      case s: ClassSymbol => s.toType.decls.filter(m => m.isTerm && (m.asTerm.isVal || m.asTerm.isVar)).map(_.name.toTermName)
-    }.flatten
-
     val methodTreeOpt = Option(c.enclosingMethod)
-    val localVars: List[TermName] = methodTreeOpt.map { methodTree =>
+    methodTreeOpt.map { methodTree =>
       val contextTrees = expandEnclosingTree(c)(methodTree)
       val pos = c.enclosingPosition
       contextTrees.flatMap { tree =>
         tree.children.collect{
-          case v@ValDef(_, name, _, _) if v.pos precedes pos => name.toTermName
+          case v@ValDef(_, name, _, rhs) if (v.pos precedes pos) && !v.symbol.isSynthetic && !rhs.exists(_.pos == pos) => name.toTermName
         }
       }
     }.getOrElse(List.empty)
-
-    val definitions = localVars ++ members
-    println("DEFINITIONS: " + definitions)
-    definitions.map { case term@TermName(name) =>
-      q"scadepl.NamedValue($name, $term)"
-    }
-
-    // see http://stackoverflow.com/questions/21445108/collecting-all-identifers-in-scope
-    // val callingPos = c.enclosingPosition
-    // val encMet = Option(c.enclosingMethod)
-    // val classElements = c.enclosingClass.asInstanceOf[ImplDefApi].impl.children.collect {
-    //     case v: Block => v.asInstanceOf[Tree]
-    //     case v: DefDef => v.asInstanceOf[Tree]
-    //     case v: ValDef => v.asInstanceOf[Tree]
-    //     case v: ModuleDef => v.asInstanceOf[Tree]
-    //   }
-
-    // val classFields = classElements.collect {case v@ValDef(_, name, _, _) if !v.isEmpty => name}
-    // val blockFields = List()//classElements.collectFirst{
-    // // case Block(body, ret) if positionIsInList(c)(body) => body.collect {
-    // //   case v@ValDef(_, name, _, _) if v.pos precedes callingPos => Ident(name)
-    // // }
-    // // }.getOrElse(List())
-    // val methodFields = encMet.map(_.collect {case v@ValDef(_, name, _, _) if v.pos precedes callingPos => name}).getOrElse(List())
-
-    // val ignored = Set(TermName("_"))
-    // val values = (classFields ++ blockFields ++ methodFields).filterNot(ignored)
   }
 
-  def importsInContext(c: Context): List[c.Tree] = {
+  def argsInContext(c: Context): List[c.TermName] = {
+    import c.universe._
+
+    val owner = c.internal.enclosingOwner
+    val ownerChain = symbolOwnerChain(c)(owner)
+    ownerChain.collect {
+      case s: MethodSymbol => s.paramLists.flatMap(_.map(_.name.toTermName))
+    }.flatten
+  }
+
+  def membersInContext(c: Context): List[c.TermName] = {
+    import c.universe._
+
+    val owner = c.internal.enclosingOwner
+    val ownerChain = symbolOwnerChain(c)(owner)
+    ownerChain.collect {
+      case s: ClassSymbol => s.toType.decls.filter(m => m.isTerm && (m.asTerm.isVal || m.asTerm.isVar)).map(_.name.toTermName)
+    }.flatten
+  }
+
+  def thisesInContext(c: Context): List[c.Tree] = {
+    import c.universe._
+
+    val owner = c.internal.enclosingOwner
+    val ownerChain = symbolOwnerChain(c)(owner)
+    ownerChain.collect {
+      case s: ClassSymbol if !s.isPackage => This(s.toType.typeSymbol)
+    }
+  }
+
+  def importsInContext(c: Context): List[String] = {
     import c.universe._
 
     val owner = c.internal.enclosingOwner
@@ -113,47 +108,77 @@ object DebugImpl {
       }
     }
 
-    val imports = allImports.toList.distinct
-    println("IMPORTS: " + imports)
-    imports .map(i => q"$i")
-
-    // https://github.com/lihaoyi/sourcecode/blob/master/sourcecode/shared/src/main/scala/sourcecode/SourceContext.scala#L117
-    // val lineNum = pos.line
-    // val fileName = pos.source.path // This needs to be trimmed down
-    // val fullName = owner.fullName.trim
-    // val fileContent = new String(tree.pos.source.content)
-    // val start = tree.collect{case tree => tree.pos.startOrPoint}.min
-    // val g = c.asInstanceOf[reflect.macros.runtime.Context].global
-    // val parser = g.newUnitParser(fileContent.drop(start))
-    // parser.expr()
-    // val end = parser.in.lastOffset
-    // val txt = fileContent.slice(start, start + end)
-
-    // val newTree = c.parse(fileContent)
+    allImports.toList
   }
 
-  def break(c: Context)(vals: c.Tree*): c.Tree = {
+  def namedValue(c: Context)(name: String, value: c.Tree): c.Tree = {
     import c.universe._
-    val namedValues = namedValuesFromTrees(c)(vals)
-    q"scadepl.Debug.break(..$namedValues)"
+    q"scadepl.NamedValue($name, $value)"
   }
 
-  def log(c: Context)(vals: c.Tree*): c.Tree = {
+  def termToNamedValue(c: Context)(term: c.TermName): c.Tree = {
     import c.universe._
-    val namedValues = namedValuesFromTrees(c)(vals)
-    q"scadepl.Debug.log(..$namedValues)"
+    val name = term.decodedName.toString
+    namedValue(c)(name, q"$term")
   }
 
-  def autoBreak(c: Context)(): c.Tree = {
+  def treeToNamedValue(c: Context)(tree: c.Tree): Option[c.Tree] = {
     import c.universe._
-    val namedValues = namedValuesInContext(c)
-    val imports = importsInContext(c)
-    q"scadepl.Debug.break(Seq(..$imports), ..$namedValues)"
+
+    tree match {
+      case v@Select(_, term: TermName) => Some(termToNamedValue(c)(term))
+      case v@Ident(term: TermName) => Some(termToNamedValue(c)(term))
+      case v@Literal(Constant(_)) => Some(namedValue(c)(c.freshName(), v))
+      case v@This(TypeName(_)) => Some(namedValue(c)(v.toString, v))
+      case _ => None
+    }
   }
 
-  def autoLog(c: Context)(): c.Tree = {
+  def imports(c: Context): c.Expr[List[String]] = {
     import c.universe._
-    val namedValues = namedValuesInContext(c)
-    q"scadepl.Debug.log(..$namedValues)"
+    val imports = importsInContext(c).map(i => q"$i")
+    c.Expr(q"List(..$imports)")
+  }
+
+  def locals(c: Context): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val terms = localsInContext(c)
+    val values = terms.map(t => termToNamedValue(c)(t))
+    c.Expr(q"List(..$values)")
+  }
+
+  def args(c: Context): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val terms = argsInContext(c)
+    val values = terms.map(t => termToNamedValue(c)(t))
+    c.Expr(q"List(..$values)")
+  }
+
+  def members(c: Context): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val terms = membersInContext(c)
+    val values = terms.map(t => termToNamedValue(c)(t))
+    c.Expr(q"List(..$values)")
+  }
+
+  def thises(c: Context): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val trees = thisesInContext(c)
+    val values = trees.flatMap(t => treeToNamedValue(c)(t))
+    c.Expr(q"List(..$values)")
+  }
+
+  def all(c: Context): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val terms = localsInContext(c) ++ argsInContext(c) ++ membersInContext(c)
+    val trees = thisesInContext(c)
+    val values = terms.map(t => termToNamedValue(c)(t)) ++ trees.flatMap(t => treeToNamedValue(c)(t))
+    c.Expr(q"List(..$values)")
+  }
+
+  def idents(c: Context)(vals: c.Tree*): c.Expr[List[NamedValue[_]]] = {
+    import c.universe._
+    val identVars = vals.flatMap(t => treeToNamedValue(c)(t))
+    c.Expr(q"List(..$identVars)")
   }
 }

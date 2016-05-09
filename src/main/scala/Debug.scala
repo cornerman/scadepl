@@ -2,7 +2,12 @@ package scadepl
 
 import reflect.runtime.universe.WeakTypeTag
 
-case class NamedValue[T](name: String, value: T)(implicit val typeTag: WeakTypeTag[T])
+case class NamedValue[T](name: String, value: T)(implicit val typeTag: WeakTypeTag[T]) {
+  def strippedName = {
+    //TODO what is allowed...
+    if (name == "this") "_this" else name.replace(".", "_")
+  }
+}
 
 object Debug {
   implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: WeakTypeTag[T]): NamedValue[T] = NamedValue(tuple._1, tuple._2)
