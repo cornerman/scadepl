@@ -1,11 +1,10 @@
 package scadepl
 
-import scala.tools.nsc.interpreter.ILoop
-import scala.reflect.runtime.universe.TypeTag
+import reflect.runtime.universe.TypeTag
 
-class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoop {
+class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoopWithInit {
 
-  private def init() {
+  override protected def init() {
     echo("Binding scope:")
     imports.foreach(i => intp.interpret(s"import $i"))
     namedValues.foreach { v =>
@@ -20,23 +19,34 @@ class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]
     // }
   }
 
-  override def printWelcome() = {
-    super.printWelcome()
-    echo("Debug repl started. Welcome!")
-
-    processLine("")
-    init()
+  def freshReplScope = {
+    intpOpt.map { intp =>
+      val valueNames = namedValues.map(_.name).toSet
+      intp.replScope.dropWhile { sym =>
+        val symName = sym.name.decoded
+        symName.startsWith("$") || valueNames.contains(symName)
+      }
+    }.getOrElse(intp.replScope)
   }
 
-  override def commands = super.commands ++ debugCommands
+  def lastResult: Option[Any] = {
+    intpOpt.flatMap { intp =>
+      val symOpt = freshReplScope.filter(_.name.decoded.matches("^res\\d+")).lastOption
+      symOpt.flatMap(sym => intp.valueOfTerm(sym.name.decoded))
+    }
+  }
 
-  import LoopCommand.{cmd, nullary}
+  override def prompt = super.prompt
 
-  lazy val debugCommands = List(
-    nullary("ls", "show all defined parameters", DebugCommands.ls)
-  )
+  override def commands = super.commands ++ DebugCommands.cmds
 
   object DebugCommands {
+    import LoopCommand.{cmd, nullary}
+
+    lazy val cmds = List(
+      nullary("ls", "show all defined parameters", DebugCommands.ls)
+    )
+
     def ls() {
       namedValues.foreach { param =>
         val line = s"${param.name}: ${param.typeTag.tpe} = ${param.value}"

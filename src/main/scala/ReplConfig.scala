@@ -1,6 +1,6 @@
 package scadepl
 
-import scala.tools.nsc.Settings
+import tools.nsc.Settings
 
 object ReplConfig {
   lazy val settings = {

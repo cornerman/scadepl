@@ -1,18 +1,19 @@
 package scadepl
 
-import scala.reflect.runtime.universe.WeakTypeTag
+import reflect.runtime.universe.WeakTypeTag
 
 case class NamedValue[T](name: String, value: T)(implicit val typeTag: WeakTypeTag[T])
 
 object Debug {
   implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: WeakTypeTag[T]): NamedValue[T] = NamedValue(tuple._1, tuple._2)
 
-  def break(imports: Seq[String], namedValues: NamedValue[_]*) {
+  def break[T](imports: Seq[String], namedValues: NamedValue[_]*): Option[T] = {
     val repl = new ReplILoop(imports, namedValues)
-    repl process ReplConfig.settings
+    repl.process(ReplConfig.settings)
+    repl.lastResult.map(_.asInstanceOf[T])
   }
 
-  def break(namedValues: NamedValue[_]*) {
+  def break[T](namedValues: NamedValue[_]*): Option[T] = {
     break(Seq.empty, namedValues: _*)
   }
 
@@ -20,6 +21,7 @@ object Debug {
     val statements = namedValues.map { v =>
       s"${v.name}: ${v.typeTag.tpe} = ${v.value}"
     }
+
     println(statements.mkString("\n"))
   }
 }
