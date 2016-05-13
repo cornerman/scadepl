@@ -4,7 +4,7 @@ import java.io.{InputStream, PrintStream}
 import scadepl.NamedValue
 import com.sun.jdi._
 
-object Utils {
+object Helpers {
   def classToName(klass: Class[_]) = klass.getName.replaceAllLiterally("$", "")
 
   def inputStreamToOutputStream(in: InputStream, out: PrintStream) {
@@ -20,7 +20,7 @@ object Utils {
     t.start()
   }
 
-  def namedValues(vars: Map[String, Value]): List[NamedValue[_]] = {
+  def namedValues(vars: Map[String, Value]): List[NamedValue] = {
     vars.toList.flatMap { case (name, value) =>
       value match {
         case v: BooleanValue => Some(NamedValue(name, v.value))

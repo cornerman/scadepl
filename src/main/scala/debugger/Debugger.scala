@@ -9,7 +9,7 @@ import scadepl.{Debug, NamedValue}
 case class DebugSettings(breakOnException: Boolean = false, breakpoints: Seq[(String,Int)] = Seq.empty)
 
 object Debugger {
-  import Utils._
+  import Helpers._
 
   def createDebugger(mainClass: Class[_]) = {
     val className = classToName(mainClass)
@@ -36,11 +36,10 @@ object Debugger {
       if (settings.breakOnException) {
         s.onUnsafeAllExceptions(false, true).foreach(e => {
           println(s"Unhandled exception: $e")
-          Debug.break(NamedValue("_exception", e))
+          Debug.repl(NamedValue("_exception", e))
         })
       }
 
-      //TODO: method enter/exit
       val debugClass = Debuggee.getClass
       val className = classToName(debugClass)
       val breakMethod = JDITools.scalaClassStringToFileString(className) -> 5
@@ -60,17 +59,10 @@ object Debugger {
             val fields = frame.thisObject.getValues(frame.thisObject.referenceType.visibleFields).asScala.toMap.map { case (k,v) => (k.name,v) }
             val params = definedValues ++ namedValues(vars) ++ namedValues(fields)
 
-            Debug.break(params : _*)
+            Debug.repl(params : _*)
           }
         })
       }
-
-    // val className = classToName(Debug.Smart.getClass)
-    // val funcName = "break"
-    // s.onUnsafeMethodExit(className, funcName).foreach(e => {
-    //   println(s"Break at: $e")
-    //   Debug.break(NamedValue("e", e))
-    // })
     }
 
     while (debugger.isRunning && debugger.process.isEmpty)

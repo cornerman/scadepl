@@ -1,32 +1,32 @@
 package scadepl
 
 import reflect.runtime.universe.WeakTypeTag
-
-case class NamedValue[T](name: String, value: T)(implicit val typeTag: WeakTypeTag[T]) {
-  def strippedName = {
-    //TODO what is allowed...
-    if (name == "this") "_this" else name.replace(".", "_")
-  }
-}
+import macros.DebugImpl
+import repl.ReplILoop
 
 object Debug {
-  implicit def tupleToNamedValue[T](tuple: (String, T))(implicit typeTag: WeakTypeTag[T]): NamedValue[T] = NamedValue(tuple._1, tuple._2)
+  implicit def tupleToNamedValue[T : WeakTypeTag](tuple: (String, T)): TypeNamedValue[T] = NamedValue(tuple._1, tuple._2)
+  implicit def tupleTupleToNamedValue[T : WeakTypeTag](tuple: ((String, Any), String)): LiteralNamedValue = NamedValue(tuple._1._1, tuple._1._2, tuple._2)
 
-  def break[T](imports: Seq[String], namedValues: NamedValue[_]*): Option[T] = {
+  def repl[T](imports: Seq[String], namedValues: NamedValue*): Option[T] = {
     val repl = new ReplILoop(imports, namedValues)
-    repl.process(ReplConfig.settings)
+    repl.process(Config.replSettings)
     repl.lastResult.map(_.asInstanceOf[T])
   }
 
-  def break[T](namedValues: NamedValue[_]*): Option[T] = {
-    break(Seq.empty, namedValues: _*)
+  def repl[T](namedValues: NamedValue*): Option[T] = {
+    repl(Seq.empty, namedValues: _*)
   }
 
-  def log(namedValues: NamedValue[_]*) {
-    val statements = namedValues.map { v =>
-      s"${v.name}: ${v.typeTag.tpe} = ${v.value}"
-    }
-
-    println(statements.mkString("\n"))
+  def log(namedValues: NamedValue*) {
+    Config.logStream.println(namedValues.mkString("\n"))
   }
+
+  def _imports: List[String] = macro DebugImpl.imports
+  def _locals: List[NamedValue] = macro DebugImpl.locals
+  def _args: List[NamedValue] = macro DebugImpl.args
+  def _members: List[NamedValue] = macro DebugImpl.members
+  def _thises: List[NamedValue] = macro DebugImpl.thises
+  def _all: List[NamedValue] = macro DebugImpl.all
+  def _idents(vals: Any*): List[NamedValue] = macro DebugImpl.idents
 }

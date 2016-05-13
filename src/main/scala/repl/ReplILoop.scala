@@ -1,8 +1,8 @@
-package scadepl
+package scadepl.repl
 
-import reflect.runtime.universe.TypeTag
+import scadepl.NamedValue
 
-class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]] = Seq.empty) extends ILoopWithInit {
+class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue] = Seq.empty) extends ILoopWithInit {
 
   override protected def init() {
     echo("Debug repl started. Welcome!")
@@ -12,13 +12,8 @@ class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]
     intp.interpret(importCode)
 
     echo("Binding values:")
-    namedValues.distinct.foreach { v =>
-      val tpe = v.typeTag match {
-        case t: TypeTag[_] => t.tpe.toString
-        case _             => v.value.getClass.getName // TODO: this is only a workaround for generics
-      }
-
-      intp.bind(v.strippedName, tpe, v.value)
+    (NamedValue("n", namedValues) :: namedValues.toList).distinct.foreach { v =>
+      intp.bind(v.strippedName, v.typeName, v.value)
     }
     // intp.beQuietDuring {
     // }
@@ -49,14 +44,11 @@ class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue[_]
     import LoopCommand.{cmd, nullary}
 
     lazy val cmds = List(
-      nullary("ls", "show all defined parameters", DebugCommands.ls)
+      nullary("ls", "show all defined parameters", ls)
     )
 
     def ls() {
-      namedValues.foreach { param =>
-        val line = s"${param.name}: ${param.typeTag.tpe} = ${param.value}"
-        println(line)
-      }
+      namedValues.foreach(println)
     }
   }
 }

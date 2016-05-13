@@ -1,7 +1,7 @@
 package scadepl.debugger
 
 object Debuggee {
-  def break() {
+  def breakpoint() {
     println(s"breakpoint")
   }
 }

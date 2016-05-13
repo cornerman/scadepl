@@ -1,4 +1,4 @@
-package scadepl
+package scadepl.repl
 
 import scala.tools.nsc.interpreter.{ILoop, IMain}
 
