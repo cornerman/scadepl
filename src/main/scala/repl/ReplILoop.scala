@@ -12,7 +12,7 @@ class ReplILoop(imports: Seq[String] = Seq.empty, namedValues: Seq[NamedValue] =
     intp.interpret(importCode)
 
     echo("Binding values:")
-    (NamedValue("n", namedValues) :: namedValues.toList).distinct.foreach { v =>
+    namedValues.toList.distinct.foreach { v =>
       intp.bind(v.strippedName, v.typeName, v.value)
     }
     // intp.beQuietDuring {
