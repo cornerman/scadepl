@@ -3,9 +3,7 @@ package scadepl.macros
 import reflect.macros.blackbox.Context
 import scadepl.NamedValue
 
-trait ContextTools {
-  val context: Context
-
+class ContextTools[C <: Context](val context: C) {
   import context.universe._
 
   def symbolOwnerChain(sym: context.Symbol): List[context.Symbol] = {
@@ -100,5 +98,5 @@ trait ContextTools {
 }
 
 object ContextTools {
-  def apply(c: Context): ContextTools { val context: c.type } = new ContextTools { val context: c.type = c }
+  def apply(c: Context): ContextTools[c.type] = new ContextTools(c)
 }
