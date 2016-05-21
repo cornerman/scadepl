@@ -57,10 +57,10 @@ class ContextTools[C <: Context](val context: C) {
     }
   }
 
-  def importsInContext: List[context.TermName] = {
+  def importsInContext: List[context.Tree] = {
     val owner = context.internal.enclosingOwner
     val ownerChain = symbolOwnerChain(owner)
-    val pkgOpt = ownerChain.find(_.isPackage).filter(_.name != "<empty>").map(p => s"${p.fullName}._") //TODO sane check
+    val pkgOpt = ownerChain.find(_.isPackage).filterNot(_.name.toString.startsWith("<empty>")).map(p => s"${p.fullName}._") //TODO sane check
 
     val pkgTree = context.enclosingPackage
     val contextTrees = expandEnclosingTree(pkgTree)
@@ -71,7 +71,7 @@ class ContextTools[C <: Context](val context: C) {
       }
     }
 
-    allImports.map(i => TermName(i)).toList
+    allImports.map(i => q"$i").toList
   }
 
   def mkList[I,R](values: List[I])(implicit lift: Liftable[I]): context.Expr[List[R]] = context.Expr(q"List(..$values)")
